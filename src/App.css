@@ -47,8 +47,8 @@ h1 {
 .guess-char {
   font-size: 2rem;
   font-weight: bold;
-  margin: 0.25rem;
-  background-color: #f0f0f0;
+  margin: 0 0.25rem;
+  background-color: #171717;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
@@ -56,6 +56,7 @@ h1 {
   display: inline-flex;
   width: 3rem;
   height: 3rem;
+  border: 1px solid #333;
 }
 .guess-char.correct {
   background-color: #4caf50;
