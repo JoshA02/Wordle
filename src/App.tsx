@@ -17,12 +17,36 @@ function App() {
   const API_URL = 'https://random-word-api.herokuapp.com/word?length=5';
   const DICT_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
 
+  // function to validate if a word exists in dictionary
+  async function validateWord(word: string): Promise<boolean> {
+    try {
+      const response = await fetch(DICT_API + word);
+      if (response.ok) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('Error validating the word:', error);
+      return false;
+    }
+  }
+
   // runs on component mount; fetch a random word from API
   useEffect(() => {
     async function fetchSolution() {
       try {
         const response = await fetch(API_URL);
         const data = await response.json();
+        const word = data[0].toLowerCase();
+        
+        // ensure word is valid before setting as solution:
+        const isValid = await validateWord(word);
+        if (!isValid) {
+          console.log('Fetched word "' + word + '" is not valid. Fetching a new word...');
+          fetchSolution();
+          return;
+        }
         setSolution(data[0].toLowerCase());
       } catch (error) {
         console.error('Error fetching the solution word:', error);
@@ -34,10 +58,15 @@ function App() {
   
 
   useEffect(() => {
-
     function submitGuess() {
       // submit guess
       if (currentGuess.length === WORD_LENGTH && guesses.length < MAX_GUESSES && !gameOver) {
+
+        // ensure solution is loaded
+        if (!solution) {
+          alert('Solution not loaded yet. Please wait a moment and try again.');
+          return;
+        }
 
         // check if guess is correct
         if (currentGuess === solution) {
@@ -95,15 +124,9 @@ function App() {
           validWord.current = -1; // -1 indicates validation in progress
           if (currentGuess.length + 1 === WORD_LENGTH) {
             console.log('Validating word:', currentGuess + key.toLowerCase());
-            fetch(DICT_API + (currentGuess + key.toLowerCase()))
-              .then(response => {
-                validWord.current = response.ok ? 1 : 0;
-                console.log('Word validation result:', validWord.current);
-              })
-              .catch(() => {
-                validWord.current = 0;
-                alert('Error validating word. Please try again.');
-              });
+            validateWord(currentGuess + key.toLowerCase()).then(isValid => {
+              validWord.current = isValid ? 1 : 0;
+            });
           }
         }
       }
