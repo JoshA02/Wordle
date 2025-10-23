@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react'
 import './App.css'
 import Guess from './components/Guess';
+import {validateWord} from './utils';
 
 function App() {
 
@@ -15,37 +16,13 @@ function App() {
   // constants
   const MAX_GUESSES = 6;
   const WORD_LENGTH = 5;
-  const API_URL = 'https://random-word-api.herokuapp.com/word?length=5';
-  const DICT_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
-
-  /**
-   * Validates a word using the dictionary API
-   * @param word word to validate
-   * @param signal abort signal to cancel fetch; optional
-   * @returns true if word is valid, false otherwise
-   * @throws AbortError if fetch is aborted
-   */
-  async function validateWord(word: string, signal?: AbortSignal): Promise<boolean> {
-    try {
-      const response = await fetch(DICT_API + word, {signal});
-      if (!response.ok) {
-        throw new Error('Failed to validate word');
-      }
-      return true;
-    } catch(error: any) {
-      if (error.name === 'AbortError') {
-        throw error; // re-throw abort errors to be handled by caller
-      }
-      console.error('Error validating the word:', error);
-      return false;
-    }
-  }
+  const WORD_API = 'https://random-word-api.herokuapp.com/word?length=5';
 
   // runs on component mount; fetch a random word from API
   useEffect(() => {
     async function fetchSolution() {
       try {
-        const response = await fetch(API_URL);
+        const response = await fetch(WORD_API);
         const data = await response.json();
         const word = data[0].toLowerCase();
         
