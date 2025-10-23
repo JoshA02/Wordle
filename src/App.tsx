@@ -9,7 +9,8 @@ function App() {
   const [currentGuess, setCurrentGuess] = useState('');
   const [gameOver, setGameOver] = useState(false);
   const [solution, setSolution] = useState('');
-  const validWord = useRef(0); // -1 = checking, 0 = invalid, 1 = valid
+  const validGuess = useRef(0); // -1 = checking, 0 = invalid, 1 = valid
+  const validGuessAbortController = useRef<AbortController | null>(null);
 
   // constants
   const MAX_GUESSES = 6;
@@ -17,16 +18,24 @@ function App() {
   const API_URL = 'https://random-word-api.herokuapp.com/word?length=5';
   const DICT_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
 
-  // function to validate if a word exists in dictionary
-  async function validateWord(word: string): Promise<boolean> {
+  /**
+   * Validates a word using the dictionary API
+   * @param word word to validate
+   * @param signal abort signal to cancel fetch; optional
+   * @returns true if word is valid, false otherwise
+   * @throws AbortError if fetch is aborted
+   */
+  async function validateWord(word: string, signal?: AbortSignal): Promise<boolean> {
     try {
-      const response = await fetch(DICT_API + word);
-      if (response.ok) {
-        return true;
-      } else {
-        return false;
+      const response = await fetch(DICT_API + word, {signal});
+      if (!response.ok) {
+        throw new Error('Failed to validate word');
       }
-    } catch (error) {
+      return true;
+    } catch(error: any) {
+      if (error.name === 'AbortError') {
+        throw error; // re-throw abort errors to be handled by caller
+      }
       console.error('Error validating the word:', error);
       return false;
     }
@@ -47,6 +56,8 @@ function App() {
           fetchSolution();
           return;
         }
+
+        console.log('Fetched solution word:', word);
         setSolution(data[0].toLowerCase());
       } catch (error) {
         console.error('Error fetching the solution word:', error);
@@ -102,11 +113,11 @@ function App() {
 
         // check if word is in dictionary (using cached result)
         const interval = setInterval(() => {
-          if(validWord.current === -1) return; // still checking
+          if(validGuess.current === -1) return; // still checking
 
-          if (validWord.current === 1) {
+          if (validGuess.current === 1) {
             submitGuess();
-          } else if (validWord.current === 0) {
+          } else if (validGuess.current === 0) {
             alert('Not a valid word.');
           }
           clearInterval(interval);
@@ -121,12 +132,24 @@ function App() {
           setCurrentGuess(currentGuess + key.toLowerCase());
 
           // if last letter was just entered, check validity here to avoid delays on hitting Enter
-          validWord.current = -1; // -1 indicates validation in progress
+
+          // abort any ongoing validation
+          if(validGuessAbortController.current) validGuessAbortController.current.abort();
+
+          const abortController = new AbortController();
+          validGuessAbortController.current = abortController;
+
+
+          validGuess.current = -1; // -1 indicates validation in progress
           if (currentGuess.length + 1 === WORD_LENGTH) {
             console.log('Validating word:', currentGuess + key.toLowerCase());
-            validateWord(currentGuess + key.toLowerCase()).then(isValid => {
-              validWord.current = isValid ? 1 : 0;
-            });
+
+            const word = currentGuess + key.toLowerCase();
+            validateWord(word, abortController.signal)
+              .then(isValid => {
+                validGuess.current = isValid ? 1 : 0;
+              })
+              .catch(() => {return;}); // ignore abort errors
           }
         }
       }
